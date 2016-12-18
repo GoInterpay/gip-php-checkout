@@ -21,11 +21,12 @@
 // error, and there is a result.
 //
 class Result {
-  function __construct($httpCode, $error, $message, $result = null){
+  function __construct($httpCode, $error, $message, $result, $raw){
     $this->httpCode = $httpCode;
     $this->error = $error;
     $this->message = $message;
     $this->result = $result;
+    $this->raw = $raw;
   }
 
   // The HTTP status code that was returned, or null if that didn't happen.
@@ -39,6 +40,10 @@ class Result {
 
   // The API response (with the error extracted), or null.
   public $result;
+
+  // The raw entity returned, which is sometimes useful for diagnostic
+  // purposes.
+  public $raw;
 }
 
 // ==========================================================================

@@ -52,13 +52,19 @@ $paymentMethods = $gip->getPaymentMethods('CA', 'CAD');
 print_r($paymentMethods);
 
 // ---------------------------------------------------------------------------
+// The credentials published in this demo file are shared.  Make a random
+// reference that we can use here that is unlikely to show demo transactions
+// from others.
+$myReference = 'gip-php-checkout:demo.php:' . md5(rand());
+
+// ---------------------------------------------------------------------------
 // NOTE: the device fingerprint value will have to be determined before this
 //       call.  See the API documentation for details.  For the purposes of
 //       demonstration, we use one that is known to exist.
 //
 $deviceFingerprint = '1b3957e8-1c8f-4af5-8517-94bc8cda8595';
 $checkout = $gip->checkout($deviceFingerprint,
-                           'myReference',
+                           $myReference,
                            'VISA',
                            [
                              'Number' => '4111111111111111',
@@ -121,7 +127,7 @@ print_r($query);
 // ---------------------------------------------------------------------------
 // Try looking up what orders have been placed using our reference.
 //
-$byReference = $gip->queryByReference('myReference');
+$byReference = $gip->queryByReference($myReference);
 print_r($byReference);
 
 // ---------------------------------------------------------------------------
@@ -150,9 +156,8 @@ function myNotificationCallback($message, $values)
 
 // When the HTTP notification is received, we call the 'notification()' method
 // as follows.
-$notificationEntity = 'request=foo&signature=bar';
+$notificationEntity = 'request=%7b%22OrderId%22%3a%2210bf26ac-f6b0-42e3-a0a2-0bd3383ac2f7%22%2c%22UnderReview%22%3afalse%2c%22OrderState%22%3a%22PaymentAuthorized%22%2c%22ReferenceId%22%3a%22gip-php-checkout%3ademo.php%3a357443e228d2d52e03cb3a9c56d6bc8a%22%2c%22Refunds%22%3a%5b%5d%7d&signature=7o%2b%2bTvRvft0u72cTu8G77yRKgCqM%2bdsmbsKiTXfoJeE%3d';
 $httpStatus = $gip->notification($notificationEntity, 'myNotificationCallback');
-
 // At this point, $httpStatus can be used to respond to the originating HTTP
 // notification request.  No response entity is ever required for
 // notifications.

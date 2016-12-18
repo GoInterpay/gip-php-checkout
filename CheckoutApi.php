@@ -50,7 +50,7 @@ include 'Result.php';
 //
 class CheckoutApi {
 
-  // Enumeration of the environment's available.
+  // Enumeration of the environments available.
   const Production = 0;
   const Sandbox = 1;
 
@@ -61,10 +61,11 @@ class CheckoutApi {
   // secret, what environment we're using, and an identifying string for the
   // name and version of the application using this library.
   //
-  //  $gip = new GoInterpay('18da9ea3-f9ac-4e64-8405-d301f079a658',
-  //                        '7UwTUkqgYi3LsOWM6OBhsAoT1tgkyXAE',
-  //                        GoInterpay::Production,
-  //                        'myApplicationName v0.1');
+  //  $gip = new GoInterpay\CheckoutApi
+  //    ('18da9ea3-f9ac-4e64-8405-d301f079a658',
+  //     'FzhEXw6eeJtI0UNnAWdGDhv4ei9cua5qC2J9lt0tVRvaln7V6LBfFnzdfPFKoVC7',
+  //     GoInterpay::Production,
+  //     'myApplicationName v0.1');
   //
   // NOTE: the $retryDelay parameter specifies the number of milliseconds
   //       between receiving a 503 and re-sending the request.  By default,
@@ -79,16 +80,23 @@ class CheckoutApi {
   {
     $this->m_merchantId = $merchantId;
     $this->m_secret = $secret;
-    if($env === self::Production){
+    if($env == self::Production){
       $this->m_url = 'https://checkout.gointerpay.net/';
-    }else if($env === self::Sandbox){
+      // NOTE: in production there is a dedicated fingerprint service as well
+      // as the one on checkout.gointerpay.net.
+      $this->m_fingerprintUrl = 'https://fingerprint.gointerpay.net/';
+    }else if($env == self::Sandbox){
       $this->m_url = 'https://checkout-sandbox.gointerpay.net/';
+      $this->m_fingerprintUrl = $this->m_url . '/' . self::$st_apiRevision;
     }else{
       // NOTE: This is used for testing and development.  Feel free to specify
       // an alternate URL to test simulated responses.
       $this->m_url = $env;
+      $this->m_fingerprintUrl
+        = $this->m_url . self::$st_apiRevision . '/fingerprint';
     }
     $this->m_url .= self::$st_apiRevision . '/';
+    $this->m_fingerprintUrl .= '?MerchantId=' . $merchantId;
     $this->m_name = $name;
     $this->m_retryDelay = $retryDelay;
     $this->m_maxRetries = $maxRetries;
@@ -106,15 +114,48 @@ class CheckoutApi {
   { $this->m_verbose = $value; }
 
   // -------------------------------------------------------------------------
+  // Get the merchant ID
+  //
+  public function getMerchantId()
+  { return $this->m_merchantId; }
+
+  // -------------------------------------------------------------------------
+  // Get the API endpoint URL.
+  //
+  public function getApiUrl()
+  { return $this->m_url; }
+
+  // -------------------------------------------------------------------------
+  // Get the URL that can be used for device fingerprinting.  The URL returned
+  // here returns JavaScript/ES6 code that must be executed in the browser,
+  // and returns a device fingerprint value that must be specified in the
+  // checkout() call below.  See the API documentation for more details.
+  //
+  public function getDeviceFingerprintUrl()
+  { return $this->m_fingerprintUrl; }
+
+  // -------------------------------------------------------------------------
+  // Get the URL that can be used for a call to /localize.  The URL returned
+  // here returns JavaScript/ES6 code that must be executed in the browser,
+  // and returns the localization information.  See the API documentation for
+  // more details.
+  //
+  public function getLocalizeUrl()
+  { return $this->m_url . 'localize?MerchantId=' . $this->m_merchantId; }
+
+  // -------------------------------------------------------------------------
   // Retrieve the localize information.  As this is being executed somewhere
   // other than the consumer's browser, the IP address of the consumer is
   // required.
   //
   //  $x = $gip->localize('1.2.3.4');
   //
+  // Alternatively, /localize can be called and the values returned directly
+  // to the browser using getLocalizeUrl() above.
+  //
   public function localize($consumerIpAddress,
-                           $includeRate = null,
-                           $country = null)
+                           $country = null,
+                           $includeRate = null)
   {
     parse::is_ip($consumerIpAddress);
     parse::is_boolean($includeRate, parse::NullOk);
@@ -523,13 +564,14 @@ class CheckoutApi {
     }while($code === 503 && ++$count < $this->m_maxRetries);
 
     if($result === false || $code !== 200){
-      return new Result($code, null, $result);
+      return new Result($code, null, $result, null, $result);
     }
     $obj = json_decode($result, true);
     if(json_last_error() !== JSON_ERROR_NONE){
-      return new Result($code, null, 'Invalid JSON: ' . json_last_error_msg());
+      return new Result($code, null, 'Invalid JSON: ' . json_last_error_msg(),
+                        null, $result);
     }
-    return new Result($code, null, null, $obj);
+    return new Result($code, null, null, $obj, $result);
   }
 
   // -------------------------------------------------------------------------
@@ -556,7 +598,7 @@ class CheckoutApi {
     }while($code === 503 && ++$count < $this->m_maxRetries);
 
     if($result === false || $code !== 200){
-      return new Result($code, null, $result, null);
+      return new Result($code, null, $result, null, $result);
     }
 
     // The response should be in the form of 'response=<..>&signature=<..>'
@@ -565,16 +607,19 @@ class CheckoutApi {
       $response = parse::get_string($values, 'response');
       $signature = parse::get_string($values, 'signature');
     }catch(Exception $ex){
-      return new Result($code, null, 'Malformed response entity: ' . $ex);
+      return new Result($code, null, 'Malformed response entity: ' . $ex,
+                        null, $result);
     }
 
     if($this->prv_sign($response) !== $signature){
-      return new Result($code, null, 'Invalid Signature received');
+      return new Result($code, null, 'Invalid Signature received',
+                        null, $result);
     }
 
     $obj = json_decode($response, true);
     if(json_last_error() !== JSON_ERROR_NONE){
-      return new Result($code, null, 'Invalid JSON: ' . json_last_error_msg());
+      return new Result($code, null, 'Invalid JSON: ' . json_last_error_msg(),
+                        null, $result);
     }
 
     try {
@@ -584,19 +629,21 @@ class CheckoutApi {
       if(isset($obj['Error'])){
         $err = $obj['Error'];
         if(is_array($err) === false){
-          return new Result($code, null, 'Invalid Error received');
+          return new Result($code, null, 'Invalid Error received',
+                            null, $result);
         }
         $error = parse::get_string($err, 'Code');
         $message = parse::optional_string($err, 'Message');
         unset($obj['Error']);
       }
     }catch(Exception $ex){
-      return new Result($code, null, 'Invalid Error received: ' . $ex);
+      return new Result($code, null, 'Invalid Error received: ' . $ex,
+                        null, $result);
     }
 
     // return it as a JSON blob; will return null if invalid, which would be
     // odd if it has a valid signature too.
-    return new Result($code, $error, $message, $obj);
+    return new Result($code, $error, $message, $obj, $result);
   }
 
   // -------------------------------------------------------------------------
@@ -622,7 +669,7 @@ class CheckoutApi {
     curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
     // .. we want to add the library version to the as the User-Agent
     curl_setopt($curl, CURLOPT_USERAGENT,
-                'GoInterpay::sdk::php::CheckoutApi $Revision: 24024 $ - '
+                'GoInterpay::sdk::php::CheckoutApi $Revision: 24199 $ - '
                 . $this->m_name);
 
     if($data !== null){
