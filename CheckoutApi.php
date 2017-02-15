@@ -15,7 +15,7 @@
 // limitations under the License.
 // ===========================================================================
 //
-// Common functions used to access and interact with v2.17 of the GoInterpay
+// Common functions used to access and interact with v2.18 of the GoInterpay
 // Checkout API.  All input is verified to match the syntax required in the
 // documentation, and all responses are checked for validity.  Each API call
 // will return an instance of the 'Result' class, containing the HTTP response
@@ -824,7 +824,7 @@ class CheckoutApi {
     curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
     // .. we want to add the library version to the as the User-Agent
     curl_setopt($curl, CURLOPT_USERAGENT,
-                'GoInterpay::sdk::php::CheckoutApi $Revision: 25999 $ - '
+                'GoInterpay::sdk::php::CheckoutApi $Revision: 26236 $ - '
                 . $this->m_name);
 
     if($data !== null){
