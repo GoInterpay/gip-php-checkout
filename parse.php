@@ -1,6 +1,6 @@
 <?php namespace GoInterpay;
 // ===========================================================================
-// Copyright 2016 GoInterpay
+// Copyright 2016-2017 GoInterpay
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ class parse {
   public static function is_decimal($x, $nullOk = false)
   {
     if(is_null($x) && $nullOk) return null;
-    if(is_string($x) && preg_match('/^[1-9][0-9]*(?:.[0-9]*)?$/', $x))
+    if(is_string($x) && preg_match('/^[0-9]+(?:.[0-9]*)?$/', $x))
       return $x;
     throw new InvalidValue($x, 'decimal value');
   }
@@ -190,7 +190,7 @@ class parse {
   public static function is_uuid($x, $nullOk = false)
   {
     if(is_null($x) && $nullOk) return null;
-    if(preg_match('/^[A-Z0-9]{8}-(?:[A-Z0-9]{4}-){3}[A-Z0-9]{12}$/i', $x))
+    if(preg_match('/^[A-F0-9]{8}-(?:[A-F0-9]{4}-){3}[A-F0-9]{12}$/i', $x))
       return $x;
     throw new InvalidValue($x, 'UUID');
   }
@@ -312,8 +312,8 @@ class parse {
   // -------------------------------------------------------------------------
   // Get all of the items.  There must be at least one.
   // 
-  // $x must be specified as:
-  //   [
+  // Must be specified as:
+  //   'Items' => [
   //     [
   //       'Sku' => '123X',
   //       'ConsumerPrice' => '123.45',
@@ -324,9 +324,13 @@ class parse {
   //     ...
   //   ]
   //
-  public static function get_items($x)
+  public static function get_items($array, $nullOk = false)
   {
-    if(is_null($x)) throw new InvalidValue($x, 'array for Items');
+    $x = parse::optional($array, 'Items');
+    if(is_null($x)){
+      if($nullOk) return null;
+      throw new InvalidValue($x, 'array for Items');
+    }
     if(is_array($x) === false) throw new InvalidValue($x, 'array for Items');
     $items = [];
     foreach($x as $y){
@@ -337,7 +341,7 @@ class parse {
         throw new InvalidValue($x, 'array for Items entry');
       }
       array_push($items,
-                 array_filter([
+                 parse::filter([
                    'Sku' => parse::get_string($y, 'Sku'),
                    'ConsumerPrice' => parse::get_decimal($y, 'ConsumerPrice'),
                    'Quantity' => parse::get_decimal($y, 'Quantity'),
@@ -351,40 +355,33 @@ class parse {
   // -------------------------------------------------------------------------
   // Get the shipping details, if any.
   //
-  // $x must be specified as:
-  //   [
-  //     'Reference' => 'ZA123FIOD', // optional
-  //     'Service' => 'express',
+  // Must be specified as:
+  //   'Shipping' => [
   //     'ConsumerPrice' => '10.23',
   //     'ConsumerTaxes' => '4.56',
   //     'ConsumerDuty' => '3.90'
   //   ]
   //
-  public static function get_shipping($x)
+  public static function get_shipping($array)
   {
+    $x = parse::optional($array, 'Shipping');
     if(is_null($x)) return null;
     if(is_array($x) === false){
       throw new InvalidValue($x, 'array for Shipping');
     }
-    // Return the structure required by the 'ShippingOptions' object in the API
     return
-      array_filter([
-        'Reference' => parse::optional_string($x, 'Reference'),
-        'Selected' => true,
-        'Service' => parse::get_string($x, 'Service'),
-        'ConsumerBreakdown' => [
-          'Price' => parse::get_decimal($x, 'ConsumerPrice'),
-          'Taxes' => parse::get_decimal($x, 'ConsumerTaxes'),
-          'Duty' => parse::get_decimal($x, 'ConsumerDuty')
-        ]
+      parse::filter([
+        'ConsumerPrice' => parse::get_decimal($x, 'ConsumerPrice'),
+        'ConsumerTaxes' => parse::get_decimal($x, 'ConsumerTaxes'),
+        'ConsumerDuty' => parse::get_decimal($x, 'ConsumerDuty')
       ]);
   }
 
   // -------------------------------------------------------------------------
   // Get any ancillary charges or discounts, if any.
   // 
-  // $x must be specified as:
-  //   [
+  // Must be specified as:
+  //   'Charges' / 'Discounts' => [
   //     [
   //       'Name' => 'random charge',
   //       'ConsumerPrice' => 1.00
@@ -392,8 +389,9 @@ class parse {
   //     ...
   //   ]
   //
-  public static function get_ancillary($x, $name)
+  public static function get_ancillary($array, $name)
   {
+    $x = parse::optional($array, $name);
     if(is_null($x)) return null;
     if(is_array($x) === false){
       throw new InvalidValue($x, 'array for ' . $name);
@@ -418,22 +416,23 @@ class parse {
   // -------------------------------------------------------------------------
   // Get details about financing, if any.
   //
-  // $x must be specified as:
-  //   [
+  // Must be specified as:
+  //   'Financing' => [
   //     'Instalments' => 3,
   //     'ConsumerPrice' => 10.00
   //   ]
   //
-  public static function get_financing($x)
+  public static function get_financing($array)
   {
+    $x = parse::optional($array, 'Financing');
     if(is_null($x)) return null;
     if(is_array($x) === false){
       throw new InvalidValue($x, 'array for Financing');
     }
     return
       [
-        'Instalments' => parse::get_number($y, 'Instalments'),
-        'ConsumerPrice' => parse::get_decimal($y, 'ConsumerPrice')
+        'Instalments' => parse::get_number($x, 'Instalments'),
+        'ConsumerPrice' => parse::get_decimal($x, 'ConsumerPrice')
       ];
   }
 
@@ -441,10 +440,15 @@ class parse {
   // Get the values of a Consumer.  Please see the API documentation for
   // details.
   //
-  public static function get_consumer($x)
+  public static function get_consumer($array, $nullOk=false)
   {
-    $contact = parse::get_contact($x, 'Consignee');
-    return array_merge($contact, array_filter([
+    $x = parse::optional($array, 'Consumer');
+    if(is_null($x) && $nullOk) return null;
+    if(is_array($x) === false){
+      throw new InvalidValue($x, 'array for Consumer');
+    }
+    $contact = parse::get_contact($x, true);
+    return array_merge($contact, parse::filter([
       'NationalIdentifier' => parse::optional_string($x, 'NationalIdentifier'),
       'BirthDate' => parse::optional_date($x, 'BirthDate'),
       'MerchantProfileId' => parse::optional_string($x, 'MerchantProfileId'),
@@ -456,37 +460,38 @@ class parse {
   // Get the values of a Consignee, if any.  Please see the API documentation
   // for details.
   //
-  public static function get_consignee($x, $nullOk)
+  public static function get_consignee($array, $nullOk)
   {
-    return parse::get_contact($x, 'Consignee', $nullOk);
+    $x = parse::optional($array, 'Consignee');
+    if(is_null($x) && $nullOk) return null;
+    return parse::get_contact($x, false);
   }
 
   // -------------------------------------------------------------------------
   // shared values for consumer and consignee
   //
-  private static function get_contact($x, $isConsumer, $nullOk = false)
+  private static function get_contact($x, $isConsumer)
   {
-    if(is_null($x) && $nullOk) return null;
     if(is_array($x) === false){
       throw new InvalidValue($x, 'array for ' .
                              ($isConsumer ? 'Consumer' : 'Consignee'));
     }
     return
-        array_filter([
-            'Name' => parse::get_string($x, 'Name'),
-            'Company' => parse::optional_string($x, 'Company'),
-            'Email' => ($isConsumer
-                        ? parse::get_string($x, 'Email')
-                        : parse::optional_string($x, 'Email')),
-            'Phone' => ($isConsumer
-                        ? parse::get_string($x, 'Phone')
-                        : parse::optional_string($x, 'Phone')),
-            'Address' => parse::get_string($x, 'Address'),
-            'City' => parse::get_string($x, 'City'),
-            'Region' => parse::optional_string($x, 'Region'),
-            'PostalCode' => parse::optional_string($x, 'PostalCode'),
-            'Country' => parse::get_country($x, 'Country')
-        ]);
+      parse::filter([
+        'Name' => parse::get_string($x, 'Name'),
+        'Company' => parse::optional_string($x, 'Company'),
+        'Email' => ($isConsumer
+                    ? parse::get_string($x, 'Email')
+                    : parse::optional_string($x, 'Email')),
+        'Phone' => ($isConsumer
+                    ? parse::get_string($x, 'Phone')
+                    : parse::optional_string($x, 'Phone')),
+        'Address' => parse::get_string($x, 'Address'),
+        'City' => parse::get_string($x, 'City'),
+        'Region' => parse::optional_string($x, 'Region'),
+        'PostalCode' => parse::optional_string($x, 'PostalCode'),
+        'Country' => parse::get_country($x, 'Country')
+      ]);
   }
 
   // -------------------------------------------------------------------------
@@ -539,6 +544,15 @@ class parse {
         ],
         'VerificationCode' => $cvv
       ];
+  }
+
+  // -------------------------------------------------------------------------
+  // Helper function to remove null values, but keep all other values in the
+  // output.
+  //
+  public static function filter($x)
+  {
+    return array_filter($x, function($v){ return $v !== null; });
   }
 }
 

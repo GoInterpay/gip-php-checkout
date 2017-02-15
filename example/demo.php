@@ -1,6 +1,6 @@
 <?php
 // ===========================================================================
-// Copyright 2016 GoInterpay
+// Copyright 2016-2017 GoInterpay
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -63,42 +63,46 @@ $myReference = 'gip-php-checkout:demo.php:' . md5(rand());
 //       demonstration, we use one that is known to exist.
 //
 $deviceFingerprint = '1b3957e8-1c8f-4af5-8517-94bc8cda8595';
-$checkout = $gip->checkout($deviceFingerprint,
-                           $myReference,
-                           'VISA',
-                           [
-                             'Number' => '4111111111111111',
-                             'Name' => 'Joe Shopper',
-                             'VerificationCode' => '737',
-                             'Expiry' => [ 'Year' => '2018', 'Month' => '12']
-                           ],
-                           '100.00', 'CAD',
-                           [
-                             [
-                               'Sku' => 'thing_1',
-                               'ConsumerPrice' => '50',
-                               'Quantity' => '1'
-                             ],
-                             [
-                               'Sku' => 'thing_2',
-                               'ConsumerPrice' => '2',
-                               'Quantity' => '25'
-                             ]
-                           ],
-                           [
-                             'Name' => 'Joe Shopper',
-                             'Email' => 'joe.shopper@example.com',
-                             'Phone' => '+12345678901',
-                             'Address' => '123 Any Street',
-                             'City' => 'Somewhere',
-                             'Region' => 'AB',
-                             'PostalCode' => 'T2T2T2',
-                             'Country' => 'CA',
-                             'IpAddress' => '1.2.3.4'
-                           ]
-                          );
+$checkout = $gip->checkout(
+  [
+    'DeviceFingerprint' => $deviceFingerprint,
+    'Reference' => $myReference,
+    'PaymentMethod' => 'VISA',
+    'ConsumerTotal' => '100.00',
+    'ConsumerCurrency' => 'CAD',
+    'Items' => [
+      [
+        'Sku' => 'thing_1',
+        'ConsumerPrice' => '50',
+        'Quantity' => '1'
+      ],
+      [
+        'Sku' => 'thing_2',
+        'ConsumerPrice' => '2',
+        'Quantity' => '25'
+      ]
+    ],
+    'Consumer' => [
+      'Name' => 'Joe Shopper',
+      'Email' => 'joe.shopper@example.com',
+      'Phone' => '+12345678901',
+      'Address' => '123 Any Street',
+      'City' => 'Somewhere',
+      'Region' => 'AB',
+      'PostalCode' => 'T2T2T2',
+      'Country' => 'CA',
+      'IpAddress' => '1.2.3.4'
+    ]
+  ],
+  [
+    'Number' => '4111111111111111',
+    'Name' => 'Joe Shopper',
+    'VerificationCode' => '737',
+    'Expiry' => [ 'Year' => '2018', 'Month' => '12']
+  ]
+);
 print_r($checkout);
-$orderId = GoInterpay\parse::get_string($checkout->result, 'OrderId');
+$orderId = GoInterpay\parse::get_uuid($checkout->result, 'OrderId');
 
 // ---------------------------------------------------------------------------
 // NOTE: we don't show an example here for modify() or authorize().
@@ -131,6 +135,70 @@ $byReference = $gip->queryByReference($myReference);
 print_r($byReference);
 
 // ---------------------------------------------------------------------------
+// Now try opening a contract
+//
+$openContract = $gip->openContract(
+  [
+    'DeviceFingerprint' => $deviceFingerprint,
+    'Reference' => $myReference + ':openContract',
+    'PaymentMethod' => 'VISA',
+    'ConsumerCurrency' => 'CAD',
+    'Consumer' => [
+      'Name' => 'Joe Shopper',
+      'Email' => 'joe.shopper@example.com',
+      'Phone' => '+12345678901',
+      'Address' => '123 Any Street',
+      'City' => 'Somewhere',
+      'Region' => 'AB',
+      'PostalCode' => 'T2T2T2',
+      'Country' => 'CA',
+      'IpAddress' => '1.2.3.4'
+    ]
+  ],
+  [
+    'Number' => '4111111111111111',
+    'Name' => 'Joe Shopper',
+    'VerificationCode' => '737',
+    'Expiry' => [ 'Year' => '2018', 'Month' => '12']
+  ]
+);
+print_r($openContract);
+$contractId = GoInterpay\parse::get_uuid($openContract->result, 'ContractId');
+
+
+// ---------------------------------------------------------------------------
+// Now make a checkout request against that contract.
+//
+$checkout = $gip->checkout(
+  [
+    'DeviceFingerprint' => $deviceFingerprint,
+    'Reference' => $myReference + ':contract',
+    'ContractId' => $contractId,
+    'ConsumerTotal' => '50.00',
+    'ConsumerCurrency' => 'CAD',
+    'Items' => [
+      [
+        'Sku' => 'thing_1',
+        'ConsumerPrice' => '50',
+        'Quantity' => '1'
+      ]
+    ],
+    'Consumer' => [
+      'Name' => 'Joe Shopper',
+      'Email' => 'joe.shopper@example.com',
+      'Phone' => '+12345678901',
+      'Address' => '123 Any Street',
+      'City' => 'Somewhere',
+      'Region' => 'AB',
+      'PostalCode' => 'T2T2T2',
+      'Country' => 'CA',
+      'IpAddress' => '1.2.3.4'
+    ]
+  ]
+);
+print_r($checkout);
+
+// ---------------------------------------------------------------------------
 // Finally, here is a sample of how notifications can be handled.  When an
 // HTTP notification request is received, the 'notification()' method must be
 // called to parse the information.  When finished, the 'callback' function
@@ -148,6 +216,7 @@ function myNotificationCallback($message, $values)
   }else{
     print 'Received notification: ';
     print_r($values);
+    print PHP_EOL;
   }
   // Return 200 to indicate that the notification was handled.  Return a
   // different status to indicate that the notification should be re-sent.

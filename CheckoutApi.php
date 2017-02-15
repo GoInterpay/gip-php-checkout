@@ -1,6 +1,6 @@
 <?php namespace GoInterpay;
 // ===========================================================================
-// Copyright 2016 GoInterpay
+// Copyright 2016-2017 GoInterpay
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -78,26 +78,26 @@ class CheckoutApi {
   function __construct($merchantId, $secret, $env, $name,
                        $retryDelay = 50, $maxRetries = 2)
   {
-    $this->m_merchantId = $merchantId;
-    $this->m_secret = $secret;
-    if($env == self::Production){
+    $this->m_merchantId = parse::is_uuid($merchantId);
+    $this->m_secret = parse::is_string($secret);
+    if(is_int($env) && $env == self::Production){
       $this->m_url = 'https://checkout.gointerpay.net/';
       // NOTE: in production there is a dedicated fingerprint service as well
       // as the one on checkout.gointerpay.net.
-      $this->m_fingerprintUrl = 'https://fingerprint.gointerpay.net/';
-    }else if($env == self::Sandbox){
+      $this->m_fingerprintUrl = 'https://fingerprint.gointerpay.net/' . self::$st_apiRevision;
+    }else if(is_int($env) && $env == self::Sandbox){
       $this->m_url = 'https://checkout-sandbox.gointerpay.net/';
-      $this->m_fingerprintUrl = $this->m_url . '/' . self::$st_apiRevision;
+      $this->m_fingerprintUrl = $this->m_url . self::$st_apiRevision . '/fingerprint';
     }else{
       // NOTE: This is used for testing and development.  Feel free to specify
       // an alternate URL to test simulated responses.
-      $this->m_url = $env;
+      $this->m_url = parse::is_url($env);
       $this->m_fingerprintUrl
         = $this->m_url . self::$st_apiRevision . '/fingerprint';
     }
     $this->m_url .= self::$st_apiRevision . '/';
     $this->m_fingerprintUrl .= '?MerchantId=' . $merchantId;
-    $this->m_name = $name;
+    $this->m_name = parse::is_string($name);
     $this->m_retryDelay = $retryDelay;
     $this->m_maxRetries = $maxRetries;
     $this->m_verbose = false;
@@ -157,15 +157,27 @@ class CheckoutApi {
                            $country = null,
                            $includeRate = null)
   {
-    parse::is_ip($consumerIpAddress);
-    parse::is_boolean($includeRate, parse::NullOk);
-    parse::is_country($country, parse::NullOk);
-    return self::prv_get('localize',
-                         [ 'MerchantId' => $this->m_merchantId,
-                           'ConsumerIpAddress' => $consumerIpAddress,
-                           'IncludeRate' => $includeRate,
-                           'Country' => $country
-                         ]);
+    return self::prv_get
+      ('localize',
+       [
+         'MerchantId' => $this->m_merchantId,
+         'ConsumerIpAddress' => parse::is_ip($consumerIpAddress),
+         'IncludeRate' => parse::is_boolean($includeRate, parse::NullOk),
+         'Country' => parse::is_country($country, parse::NullOk)
+       ]);
+  }
+
+  // -------------------------------------------------------------------------
+  // Retrieve information about a currency.
+  //
+  public function getCurrencyInfo($currency)
+  {
+    return self::prv_get
+      ('localize',
+       [
+         'MerchantId' => $this->m_merchantId,
+         'Currency' => parse::is_currency($currency)
+       ]);
   }
 
   // -------------------------------------------------------------------------
@@ -173,8 +185,7 @@ class CheckoutApi {
   //
   public function getRates()
   {
-    return self::prv_get('getRates',
-                         [ 'MerchantId' => $this->m_merchantId ]);
+    return self::prv_get('getRates', [ 'MerchantId' => $this->m_merchantId ]);
   }
 
   // -------------------------------------------------------------------------
@@ -184,22 +195,139 @@ class CheckoutApi {
                                     $currency,
                                     $viaAgent = null)
   {
-    parse::is_country($country);
-    parse::is_currency($currency);
-    parse::is_boolean($viaAgent, parse::NullOk);
-    return self::prv_get('getPaymentMethods',
-                         [ 'MerchantId' => $this->m_merchantId,
-                           'Country' => $country,
-                           'Currency' => $currency,
-                           'ViaAgent' => $viaAgent
-                         ]);
+    return self::prv_get
+      ('getPaymentMethods',
+       [
+         'MerchantId' => $this->m_merchantId,
+         'Country' => parse::is_country($country),
+         'Currency' => parse::is_currency($currency),
+         'ViaAgent' => parse::is_boolean($viaAgent, parse::NullOk)
+       ]);
+  }
+
+  // -------------------------------------------------------------------------
+  // Submit a create request.
+  //
+  // Initial elements:
+  //   'DeviceFingerprint' = {string},
+  //   'ReferenceId' => {string},
+  //   'ConsumerTotal' => {decimal},
+  //   'ConsumerCurrency' => {currency code},
+  //
+  // Items (required) must be specified as: 
+  //   'Items' => [
+  //     [
+  //       'Sku' => {string},
+  //       'ConsumerPrice' => '123.45',
+  //       'Quantity' => '1.0',
+  //       'Description' => {string}, // optional
+  //       'ImageUrl' => {url} // optional
+  //     ],
+  //     ...
+  //   ],
+  //
+  // Consumer must be specified as:
+  //   'Consumer' => [
+  //     'Name' => {string},
+  //     'Company' => {string}, // optional
+  //     'Email' => {email address},
+  //     'Phone' => {string},
+  //     'Address' => {string},
+  //     'City' => {string},
+  //     'Region' => {string}, // optional
+  //     'PostalCode' => {string}, //optional
+  //     'Country' => {country code},
+  //     'NationalIdentifier' => {string} // optional
+  //     'BirthDate' => {date} // optional
+  //     'MerchantProfileId' => {string} // optional
+  //     'IpAddress' => {ip address} //optional
+  //   ],
+  //
+  // Consignee (required if shipping) must be specified as:
+  //   'Consignee' => [
+  //     'Name' => {string},
+  //     'Company' => {string}, // optional
+  //     'Email' => {email address}, // optional
+  //     'Phone' => {string}, // optional
+  //     'Address' => {string},
+  //     'City' => {string},
+  //     'Region' => {string}, // optional
+  //     'PostalCode' => {string}, //optional
+  //     'Country' => {country code}
+  //   ],
+  //   
+  // Shipping (optional) must be specified as:
+  //   'Shipping' => [
+  //     'ConsumerPrice' => '10.23',
+  //     'ConsumerTaxes' => '4.56',
+  //     'ConsumerDuty' => '3.90'
+  //   ],
+  //
+  // Ancillary charges and discounts must be specified as:
+  //   'Charges' / 'Discounts' => [
+  //     [
+  //       'Name' => {string},
+  //       'ConsumerPrice' => '1.00'
+  //     ],
+  //     ...
+  //   ],
+  //
+  // Optional financing information must be specified as:
+  //   'Financing' => [
+  //     'Instalments' => '3',
+  //     'ConsumerPrice' => '10.00'
+  //   ],
+  //
+  // Additional settings:   
+  //   'Country' => {country code},
+  //   'RateOfferId' => {uuid},
+  //   'AcceptLiability' => {true|false},
+  //   'Store' => {string},
+  //   'Notify' => {url},
+  //   'Return' => {url},
+  //   'Locale' => {true|false}
+  //
+  public function create($in)
+  {
+    $shipping = parse::get_shipping($in);
+    $args = [
+      'MerchantId' => $this->m_merchantId,
+      'ReferenceId' => parse::optional_string($in, 'ReferenceId'),
+      'DeviceFingerprint' => parse::optional_string($in, 'DeviceFingerprint'),
+      'ConsumerTotal' => parse::optional_decimal($in, 'ConsumerTotal'),
+      'ConsumerCurrency' => parse::get_currency($in, 'ConsumerCurrency'),
+      'Country' => parse::optional_country($in, 'Country'),
+      'RateOfferId' => parse::optional_uuid($in, 'RateOfferId'),
+      'AcceptLiability' => parse::optional_boolean($in, 'AcceptLiability'),
+      'Store' => parse::optional_string($in, 'Store'),
+      'Notify' => parse::optional_url($in, 'Notify'),
+      'Return' => parse::optional_url($in, 'Return'),
+      'Locale' => parse::optional_string($in, 'Locale'),
+      'Items' => parse::get_items($in),
+      'Shipping' => $shipping,
+      'Charges' => parse::get_ancillary($in, 'Charges'),
+      'Discounts' => parse::get_ancillary($in, 'Discounts'),
+      'Financing' => parse::get_financing($in),
+      'Consumer' => parse::get_consumer($in, parse::NullOk),
+      'Consignee' => parse::get_consignee($in, is_null($shipping)),
+      'Meta' => parse::optional($in, 'Meta')
+    ];
+
+    return self::prv_post('create', $args);
   }
 
   // -------------------------------------------------------------------------
   // Submit a checkout request.
   //
-  // NOTE: authorize=false is not supported with this method as it will be
-  // replaced with a specific endpoint very soon.
+  // This request accepts all of the same parameters as create() (see above),
+  // and additionally:
+  //   'PaymentMethod' => {string},
+  //   'IssuerId' => {string},
+  //   'Capture' => {true|false},
+  //   'ViaAgent' => {true|false},
+  //   'AcceptLiability' => {true|false},
+  //   'OpenContract' => {true|false},
+  //   'ContractId' => {uuid}
   //
   // $card must be specified as:
   //   [
@@ -209,166 +337,148 @@ class CheckoutApi {
   //     'VerificationCode' => '013'
   //   ]
   //
-  // $items must be specified as:
-  //   [
-  //     [
-  //       'Sku' => '123X',
-  //       'ConsumerPrice' => '123.45',
-  //       'Quantity' => '1.0',
-  //       'Description' => 'widget', // optional
-  //       'ImageUrl' => 'http://example.com/widget.png' // optional
-  //     ],
-  //     ...
-  //   ]
-  //
-  // $shipping must be specified as:
-  //   [
-  //     'Reference' => 'ZA123FIOD', // optional
-  //     'Service' => 'express',
-  //     'ConsumerPrice' => '10.23',
-  //     'ConsumerTaxes' => '4.56',
-  //     'ConsumerDuty' => '3.90'
-  //   ]
-  //
-  // $charges and $discounts must be specified as:
-  //   [
-  //     [
-  //       'Name' => 'random charge',
-  //       'ConsumerPrice' => '1.00'
-  //     ],
-  //     ...
-  //   ]
-  //
-  // $financing must be specified as:
-  //   [
-  //     'Instalments' => '3',
-  //     'ConsumerPrice' => '10.00'
-  //   ]
-  //
-  // $extra may specify any of the following:
-  //   [
-  //     'Reference' => {string},
-  //     'Country' => {char(2)},
-  //     'RateOfferId' => {uuid},
-  //     'Capture' => {true|false},
-  //     'ViaAgent' => {true|false},
-  //     'AcceptLiability' => {true|false},
-  //     'OpenContract' => {true|false},
-  //     'ContractId' => {uuid},
-  //     'Store' => {string},
-  //     'IssuerId' => {string},
-  //     'Notify' => {url},
-  //     'Return' => {url},
-  //     'Locale' => {true|false}
-  //   ]
-  //
-  public function checkout($deviceFingerprint,
-                           $referenceId,
-                           $paymentMethod,
-                           $card,
-                           $consumerTotal,
-                           $consumerCurrency,
-                           $items,
-                           $consumer,
-                           $consignee = null,
-                           $shipping = null,
-                           $charges = null,
-                           $discounts = null,
-                           $financing = null,
-                           $extra = null)
+  public function checkout($in, $card = null)
   {
-    parse::is_string($deviceFingerprint, parse::NullOk);
-    parse::is_string($referenceId, parse::NullOk);
-    parse::is_string($paymentMethod);
-    parse::is_decimal($consumerTotal, parse::NullOk);
-    parse::is_currency($consumerCurrency);
-
-    $shippingOptions = parse::get_shipping($shipping);
-
+    $shipping = parse::get_shipping($in);
     $args = [
       'MerchantId' => $this->m_merchantId,
-      'ReferenceId' => $referenceId,
-      'DeviceFingerprint' => $deviceFingerprint,
-      'PaymentMethod' => $paymentMethod,
-      'ConsumerTotal' => $consumerTotal,
-      'ConsumerCurrency' => $consumerCurrency,
-      'Country' => parse::optional_country($extra, 'Country'),
-      'RateOfferId' => parse::optional_uuid($extra, 'RateOfferId'),
-      'Capture' => parse::optional_boolean($extra, 'Capture'),
-      'ViaAgent' => parse::optional_boolean($extra, 'ViaAgent'),
-      'AcceptLiability' => parse::optional_boolean($extra, 'AcceptLiability'),
-      'OpenContract' => parse::optional_boolean($extra, 'OpenContract'),
-      'ContractId' => parse::optional_uuid($extra, 'ContractId'),
-      'Store' => parse::optional_string($extra, 'Store'),
-      'IssuerId' => parse::optional_string($extra, 'IssuerId'),
-      'Notify' => parse::optional_url($extra, 'Notify'),
-      'Return' => parse::optional_url($extra, 'Return'),
-      'Locale' => parse::optional_string($extra, 'Locale'),
-      'Items' => parse::get_items($items),
-      'ShippingRequired' => (is_null($shippingOptions) ? null : true),
-      'ShippingOptions' => $shipping,
-      'Charges' => parse::get_ancillary($charges, 'Charges'),
-      'Discounts' => parse::get_ancillary($discounts, 'Discounts'),
-      'Financing' => parse::get_financing($financing),
-      'Consumer' => parse::get_consumer($consumer),
-      'Consignee' => parse::get_consignee($consignee,
-                                          (is_null($shippingOptions)
-                                          ? true : false))
-      // NOTE: no Meta support
+      'ReferenceId' => parse::optional_string($in, 'ReferenceId'),
+      'DeviceFingerprint' => parse::optional_string($in, 'DeviceFingerprint'),
+      'PaymentMethod' => parse::get_string($in, 'PaymentMethod'),
+      'ConsumerTotal' => parse::optional_decimal($in, 'ConsumerTotal'),
+      'ConsumerCurrency' => parse::get_currency($in, 'ConsumerCurrency'),
+      'Country' => parse::optional_country($in, 'Country'),
+      'RateOfferId' => parse::optional_uuid($in, 'RateOfferId'),
+      'Capture' => parse::optional_boolean($in, 'Capture'),
+      'ViaAgent' => parse::optional_boolean($in, 'ViaAgent'),
+      'AcceptLiability' => parse::optional_boolean($in, 'AcceptLiability'),
+      'OpenContract' => parse::optional_boolean($in, 'OpenContract'),
+      'ContractId' => parse::optional_uuid($in, 'ContractId'),
+      'Store' => parse::optional_string($in, 'Store'),
+      'IssuerId' => parse::optional_string($in, 'IssuerId'),
+      'Notify' => parse::optional_url($in, 'Notify'),
+      'Return' => parse::optional_url($in, 'Return'),
+      'Locale' => parse::optional_string($in, 'Locale'),
+      'Items' => parse::get_items($in),
+      'Shipping' => $shipping,
+      'Charges' => parse::get_ancillary($in, 'Charges'),
+      'Discounts' => parse::get_ancillary($in, 'Discounts'),
+      'Financing' => parse::get_financing($in),
+      'Consumer' => parse::get_consumer($in),
+      'Consignee' => parse::get_consignee($in, is_null($shipping)),
+      'Meta' => parse::optional($in, 'Meta')
     ];
 
-    return self::prv_post('checkout', $args, parse::get_card($card));
+    list ($url, $entity) = self::prv_makePost('checkout', $args);
+    if($card !== null){
+      $entity .= '&card=' . urlencode(json_encode(parse::get_card($card)));
+    }
+    return self::prv_doPost($url, $entity);
+  }
+
+  // -------------------------------------------------------------------------
+  // Submit an openContract request.
+  //
+  // Initial elements:
+  //   'DeviceFingerprint' = {string},
+  //   'ReferenceId' => {string},
+  //   'ConsumerCurrency' => {currency code},
+  //   'PaymentMethod' => {string},
+  //   'IssuerId' => {string}
+  //
+  // Consumer must be specified as:
+  //   'Consumer' => [
+  //     'Name' => {string},
+  //     'Company' => {string}, // optional
+  //     'Email' => {email address},
+  //     'Phone' => {string},
+  //     'Address' => {string},
+  //     'City' => {string},
+  //     'Region' => {string}, // optional
+  //     'PostalCode' => {string}, //optional
+  //     'Country' => {country code},
+  //     'NationalIdentifier' => {string} // optional
+  //     'BirthDate' => {date} // optional
+  //     'MerchantProfileId' => {string} // optional
+  //     'IpAddress' => {ip address} //optional
+  //   ],
+  //
+  // Additional settings:   
+  //   'ViaAgent' => {true|false},
+  //   'AcceptLiability' => {true|false},
+  //   'Notify' => {url},
+  //   'Return' => {url},
+  //   'Locale' => {true|false}
+  //
+  // $card must be specified as:
+  //   [
+  //     'Number' => '4111111111111111',
+  //     'Name' => 'Joe Shopper',
+  //     'Expiry', ['Year' => '2020', 'Month' => '5'],
+  //     'VerificationCode' => '013'
+  //   ]  
+  //
+  public function openContract($in, $card = null)
+  {
+    $args = [
+      'MerchantId' => $this->m_merchantId,
+      'ReferenceId' => parse::optional_string($in, 'ReferenceId'),
+      'DeviceFingerprint' => parse::optional_string($in, 'DeviceFingerprint'),
+      'PaymentMethod' => parse::get_string($in, 'PaymentMethod'),
+      'ConsumerCurrency' => parse::get_currency($in, 'ConsumerCurrency'),
+      'ViaAgent' => parse::optional_boolean($in, 'ViaAgent'),
+      'AcceptLiability' => parse::optional_boolean($in, 'AcceptLiability'),
+      'IssuerId' => parse::optional_string($in, 'IssuerId'),
+      'Notify' => parse::optional_url($in, 'Notify'),
+      'Return' => parse::optional_url($in, 'Return'),
+      'Locale' => parse::optional_string($in, 'Locale'),
+      'Consumer' => parse::get_consumer($in),
+    ];
+
+    list ($url, $entity) = self::prv_makePost('openContract', $args);
+    if($card !== null){
+      $entity .= '&card=' . urlencode(json_encode(parse::get_card($card)));
+    }
+    return self::prv_doPost($url, $entity);
   }
 
   // -------------------------------------------------------------------------
   // Submit a modify request.
   //
-  // For most parameters, see the documentation for checkout() above.
+  // For these parameters, see the documentation for create() and checkout()
+  // above.  You may specify any of:
+  //   - Items
+  //   - Consumer
+  //   - Consignee
+  //   - Shipping
+  //   - Charges
+  //   - Discounts
+  //   - Financing
+  //   - ConsumerTotal
+  //   - ConsumerCurrency
+  //   - RateOfferId
+  //   - AcceptLiability
+  //   - Locale
   //
-  // $extra may specify any of the following:
-  //   [
-  //     'RateOfferId' => {uuid},
-  //     'AcceptLiability' => {true|false},
-  //     'Locale' => {true|false}
-  //   ]
-  //
-  public function modify($orderId,
-                         $consumerTotal,
-                         $consumerCurrency,
-                         $items,
-                         $consumer,
-                         $consignee,
-                         $shipping,
-                         $charges,
-                         $discounts,
-                         $financing,
-                         $extra)
+  public function modify($orderId, $in)
   {
-    parse::is_uuid($orderId);
-    parse::is_decimal($consumerTotal, parse::NullOk);
-    parse::is_currency($consumerCurrency);
-
-    $shippingOptions = parse::get_shipping($shipping);
-
+    $shipping = parse::get_shipping($in);
     $args = [
       'MerchantId' => $this->m_merchantId,
-      'OrderId' => $orderId,
-      'ConsumerTotal' => $consumerTotal,
-      'ConsumerCurrency' => $consumerCurrency,
-      'RateOfferId' => parse::optional_uuid($extra, 'RateOfferId'),
-      'AcceptLiability' => parse::optional_boolean($extra, 'AcceptLiability'),
-      'Locale' => parse::optional_string($extra, 'Locale'),
-      'Items' => parse::get_items($items),
-      'ShippingRequired' => (is_null($shippingOptions) ? null : true),
-      'ShippingOptions' => $shipping,
-      'Charges' => parse::get_ancillary($charges, 'Charges'),
-      'Discounts' => parse::get_ancillary($discounts, 'Discounts'),
-      'Financing' => parse::get_financing($financing),
-      'Consumer' => parse::get_consumer($consumer),
-      'Consignee' => parse::get_consignee($consignee,
-                                          (is_null($shippingOptions)
-                                          ? true : false))
-      // NOTE: no Meta support
+      'OrderId' => parse::is_uuid($orderId),
+      'ConsumerTotal' => parse::optional_decimal($in, 'ConsumerTotal'),
+      'ConsumerCurrency' => parse::optional_currency($in, 'ConsumerCurrency'),
+      'RateOfferId' => parse::optional_uuid($in, 'RateOfferId'),
+      'AcceptLiability' => parse::optional_boolean($in, 'AcceptLiability'),
+      'Locale' => parse::optional_string($in, 'Locale'),
+      'Items' => parse::get_items($in, parse::NullOk),
+      'Shipping' => $shipping,
+      'Charges' => parse::get_ancillary($in, 'Charges'),
+      'Discounts' => parse::get_ancillary($in, 'Discounts'),
+      'Financing' => parse::get_financing($in),
+      'Consumer' => parse::get_consumer($in, parse::NullOk),
+      'Consignee' => parse::get_consignee($in, is_null($shipping)),
+      'Meta' => parse::optional($in, 'Meta')
     ];
 
     return self::prv_post('modify', $args);
@@ -377,6 +487,19 @@ class CheckoutApi {
   // -------------------------------------------------------------------------
   // Attempt to authorize payment for an order.
   //
+  // $in may specify any of the following:
+  //   [
+  //     'ConsumerIpAddress' => {ip address} // required
+  //     'Capture' => {boolean},
+  //     'PaymentMethod' = {string},
+  //     'IssuerId' = {string},
+  //     'DeviceFingerprint' = {string},
+  //     'ReturnUrl' = {url},
+  //     'ViaAgent' = {boolean},
+  //     'OpenContract' = {boolean},
+  //     'ContractId' = {uuid}
+  //   ]
+  //
   // $card must be specified as:
   //   [
   //     'Number' => '4111111111111111',
@@ -385,28 +508,55 @@ class CheckoutApi {
   //     'VerificationCode' => '013'
   //   ]
   //
-  public function authorize($orderId,
-                            $consumerIpAddress,
-                            $card = null,
-                            $capture = null,
-                            $paymentMethod = null,
-                            $issuerId = null)
+  public function authorize($orderId, $in, $card = null)
   {
-    parse::is_uuid($orderId);
-    parse::is_ip($consumerIpAddress);
-    parse::is_boolean($capture, parse::NullOk);
-    parse::is_string($paymentMethod, parse::NullOk);
-    parse::is_string($issuerId, parse::NullOk);
-    return self::prv_post('authorize',
-                          [
-                            'MerchantId' => $this->m_merchantId,
-                            'OrderId' => $orderId,
-                            'ConsumerIpAddress' => $consumerIpAddress,
-                            'PaymentMethod' => $paymentMethod,
-                            'IssuerId' => $issuerId,
-                            'Capture' => $capture
-                          ],
-                          parse::get_card($card, parse::NullOk));
+    // Unlike a call to /authorize from the browser, using the information
+    // from getAuthorizeRequest() below, we require the consumer IP address.
+    parse::require_ip($in, 'ConsumerIpAddress');
+
+    // Use our own helper!
+    list ($url, $entity) = getAuthorizeRequest($orderId, $in);
+    if($card !== null){
+      $entity .= '&card=' . urlencode(json_encode(parse::get_card($card)));
+    }
+    return self::prv_doPost($url, $entity);
+  }
+
+  // -------------------------------------------------------------------------
+  // Get the URL, request, and signature that would be required to initiate an
+  // /authorize call from the browser.  This returns the URL to which the
+  // request should be posted, and a signed request to autorize the specified
+  // order.  Card details can then be added if necessary.
+  //
+  // $in may specify any of the following:
+  //   [
+  //     'ConsumerIpAddress' => {ip address}
+  //     'Capture' => {boolean},
+  //     'PaymentMethod' = {string},
+  //     'IssuerId' = {string},
+  //     'DeviceFingerprint' = {string},
+  //     'ReturnUrl' = {url},
+  //     'ViaAgent' = {boolean},
+  //     'OpenContract' = {boolean},
+  //     'ContractId' = {uuid}
+  //   ]
+  //
+  public function getAuthorizeRequest($orderId, $in)
+  {
+    $args = [
+      'MerchantId' => $this->m_merchantId,
+      'OrderId' => parse::is_uuid($orderId),
+      'ConsumerIpAddress' => parse::optional_ip($in, 'ConsumerIpAddress'),
+      'PaymentMethod' => parse::optional_string($in, 'PaymentMethod'),
+      'IssuerId' => parse::optional_string($in, 'IssuerId'),
+      'Capture' => parse::optional_boolean($in, 'Capture'),
+      'DeviceFingerprint' => parse::optional_string($in, 'DeviceFingerprint'),
+      'Return' => parse::optional_url($in, 'ReturnUrl'),
+      'ViaAgent' => parse::optional_boolean($in, 'ViaAgent'),
+      'OpenContract' => parse::optional_boolean($in, 'OpenContract'),
+      'ContractId' => parse::optional_uuid($in, 'ContractId')
+    ];
+    return self::prv_makePost('authorize', $args);
   }
 
   // -------------------------------------------------------------------------
@@ -414,11 +564,10 @@ class CheckoutApi {
   //
   public function capture($orderId)
   {
-    parse::is_uuid($orderId);
     return self::prv_post('capture',
                           [
                             'MerchantId' => $this->m_merchantId,
-                            'OrderId' => $orderId
+                            'OrderId' => parse::is_uuid($orderId)
                           ]);
   }
 
@@ -427,11 +576,10 @@ class CheckoutApi {
   //
   public function cancel($orderId)
   {
-    parse::is_uuid($orderId);
     return self::prv_post('cancel',
                           [
                             'MerchantId' => $this->m_merchantId,
-                            'OrderId' => $orderId
+                            'OrderId' => parse::is_uuid($orderId)
                           ]);
   }
 
@@ -440,15 +588,12 @@ class CheckoutApi {
   //
   public function refund($orderId, $amount, $reference)
   {
-    parse::is_uuid($orderId);
-    parse::is_decimal($amount);
-    parse::is_string($reference);
     return self::prv_post('refund',
                           [
                             'MerchantId' => $this->m_merchantId,
-                            'OrderId' => $orderId,
-                            'Amount' => $amount,
-                            'ReferenceId' => $reference
+                            'OrderId' => parse::is_uuid($orderId),
+                            'Amount' => parse::is_decimal($amount),
+                            'ReferenceId' => parse::is_string($reference)
                           ]);
   }
 
@@ -457,11 +602,10 @@ class CheckoutApi {
   //
   public function query($orderId)
   {
-    parse::is_uuid($orderId);
     return self::prv_post('query',
                           [
                             'MerchantId' => $this->m_merchantId,
-                            'OrderId' => $orderId
+                            'OrderId' => parse::is_uuid($orderId)
                           ]);
   }
 
@@ -470,11 +614,10 @@ class CheckoutApi {
   //
   public function queryByReference($referenceId)
   {
-    parse::is_string($referenceId);
     return self::prv_post('query',
                           [
                             'MerchantId' => $this->m_merchantId,
-                            'ReferenceId' => $referenceId
+                            'ReferenceId' => parse::is_string($referenceId)
                           ]);
   }
 
@@ -537,7 +680,7 @@ class CheckoutApi {
         // NOTE: if we get here, the callback function is broken.
         trigger_error('Invalid HTTP status for notification from callback [' .
                       $callback . '] = ' .
-                      (($code === null) ? '<null>' : print_r($code, true)),
+                      (is_null($code) ? '<null>' : print_r($code, true)),
                       E_USER_NOTICE);
         return 500;
       }
@@ -577,17 +720,29 @@ class CheckoutApi {
   // -------------------------------------------------------------------------
   // Perform a POST request.  Expected to take UTF-8 data.
   //
-  private function prv_post($endpoint, $args, $card = null)
+  private function prv_post($endpoint, $args)
+  {
+    list ($url, $entity) = self::prv_makePost($endpoint, $args);
+    return self::prv_doPost($url, $entity);
+  }
+
+  // -------------------------------------------------------------------------
+  // Helper to make the bits required for a POST request.
+  //
+  private function prv_makePost($endpoint, $args)
   {
     $url = $this->m_url . $endpoint;
-    $data = json_encode(array_filter($args));
+    $data = json_encode(parse::filter($args));
     $entity =
       'request=' . urlencode($data) .
       '&signature=' . urlencode(self::prv_sign($data));
-    if($card !== null){
-      $entity .= '&card=' . urlencode(json_encode($card));
-    }
+    return [$url, $entity];
+  }
 
+  // -------------------------------------------------------------------------
+  // Helper to do a post
+  private function prv_doPost($url, $entity)
+  {
     $ct = 'application/x-www-form-urlencoded';
     $count = 0;
     do {
@@ -669,7 +824,7 @@ class CheckoutApi {
     curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
     // .. we want to add the library version to the as the User-Agent
     curl_setopt($curl, CURLOPT_USERAGENT,
-                'GoInterpay::sdk::php::CheckoutApi $Revision: 24199 $ - '
+                'GoInterpay::sdk::php::CheckoutApi $Revision: 25999 $ - '
                 . $this->m_name);
 
     if($data !== null){
@@ -697,7 +852,7 @@ class CheckoutApi {
   // =========================================================================
 
   // The version of the Checkout API we're built against.
-  private static $st_apiRevision = 'v2.17';
+  private static $st_apiRevision = 'v2.18';
 
   // The GoInterpay assigned merchant ID.
   private $m_merchantId;

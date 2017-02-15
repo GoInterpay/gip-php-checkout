@@ -1,6 +1,6 @@
 <?php namespace GoInterpay;
 // ===========================================================================
-// Copyright 2016 GoInterpay
+// Copyright 2016-2017 GoInterpay
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -118,6 +118,7 @@ assert(parse::optional_country([ 'a' => 'US' ], 'b') === null);
 // ---------------------------------------------------------------------------
 $uuid1 = '1b3957e8-1c8f-4af5-8517-94bc8cda8595';
 $uuid2 = '00000000-DEAD-BEEF-0000-000000000000';
+$badUuid = '00000000-WHAT-ELSE-0000-000000000000';
 assert(parse::is_uuid($uuid1) === $uuid1);
 assert(parse::is_uuid(null, parse::NullOk) === null);
 try { parse::is_uuid(123); assert(false); }catch(InvalidValue $ex){}
@@ -125,6 +126,7 @@ try { parse::is_uuid(null); assert(false); }catch(InvalidValue $ex){}
 try { parse::is_uuid(true); assert(false); }catch(InvalidValue $ex){}
 try { parse::is_uuid('hello'); assert(false); }catch(InvalidValue $ex){}
 try { parse::is_uuid('123.45'); assert(false); }catch(InvalidValue $ex){}
+try { parse::is_uuid($badUuid); assert(false); }catch(InvalidValue $ex){}
 assert(parse::get_uuid([ 'a' => $uuid1 ], 'a') === $uuid1);
 assert(parse::get_uuid([ 'a' => $uuid2 ], 'a') === $uuid2);
 assert(parse::optional_uuid([ 'a' => $uuid1 ], 'a') === $uuid1);
@@ -188,6 +190,13 @@ assert(parse::get_ip([ 'a' => $ip1 ], 'a') === $ip1);
 assert(parse::get_ip([ 'a' => $ip2 ], 'a') === $ip2);
 assert(parse::optional_ip([ 'a' => $ip1 ], 'a') === $ip1);
 assert(parse::optional_ip([ 'a' => $ip2 ], 'b') === null);
+
+// ---------------------------------------------------------------------------
+
+$array = ['a'=>false, 'b'=>true, 'c'=>'0', 'd'=>null];
+$filtered = ['a'=>false, 'b'=>true, 'c'=>'0'];
+assert(array_filter($array) !== $filtered);
+assert(parse::filter($array) === $filtered);
 
 // ==========================================================================
 ?>
