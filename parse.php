@@ -48,7 +48,7 @@ class parse {
   // -------------------------------------------------------------------------
   // Returns the value iff it is a boolean.
   //
-  public static function is_boolean($x, $nullOk = false)
+  public static function as_boolean($x, $nullOk = false)
   {
     if(is_null($x) && $nullOk) return null;
     if(is_bool($x)) return $x;
@@ -59,19 +59,19 @@ class parse {
   // Extract a required boolean from an array.
   //
   public static function get_boolean($array, $key)
-  { return parse::is_boolean(parse::required($array, $key)); }
+  { return parse::as_boolean(parse::required($array, $key)); }
 
   // -------------------------------------------------------------------------
   // Extract a boolean from an array.  If not present or null, return null.
   //
   public static function optional_boolean($array, $key)
-  { return parse::is_boolean(parse::optional($array, $key), parse::NullOk); }
+  { return parse::as_boolean(parse::optional($array, $key), parse::NullOk); }
 
 
   // -------------------------------------------------------------------------
   // Returns the value iff it is a string.
   //
-  public static function is_string($x, $nullOk = false)
+  public static function as_string($x, $nullOk = false)
   {
     if(is_null($x) && $nullOk) return null;
     if(is_string($x)) return $x;
@@ -82,19 +82,19 @@ class parse {
   // Extract a required string from an array.
   //
   public static function get_string($array, $key)
-  { return parse::is_string(parse::required($array, $key)); }
+  { return parse::as_string(parse::required($array, $key)); }
 
   // -------------------------------------------------------------------------
   // Extract a string from an array.  If not present or null, return null.
   //
   public static function optional_string($array, $key)
-  { return parse::is_string(parse::optional($array, $key), parse::NullOk); }
+  { return parse::as_string(parse::optional($array, $key), parse::NullOk); }
 
 
   // -------------------------------------------------------------------------
   // Returns the value iff it is a decimal string.
   //
-  public static function is_decimal($x, $nullOk = false)
+  public static function as_decimal($x, $nullOk = false)
   {
     if(is_null($x) && $nullOk) return null;
     if(is_string($x) && preg_match('/^[0-9]+(?:.[0-9]*)?$/', $x))
@@ -106,19 +106,19 @@ class parse {
   // Extract a required decimal value from an array.
   //
   public static function get_decimal($array, $key)
-  { return parse::is_decimal(parse::required($array, $key)); }
+  { return parse::as_decimal(parse::required($array, $key)); }
 
   // -------------------------------------------------------------------------
   // Extract a decimal from an array.  If not present or null, return null.
   //
   public static function optional_decimal($array, $key)
-  { return parse::is_decimal(parse::optional($array, $key), parse::NullOk); }
+  { return parse::as_decimal(parse::optional($array, $key), parse::NullOk); }
 
 
   // -------------------------------------------------------------------------
   // Returns the value iff it is a number string.
   //
-  public static function is_number($x, $nullOk = false)
+  public static function as_number($x, $nullOk = false)
   {
     if(is_null($x) && $nullOk) return null;
     if(is_string($x) && preg_match('/^[0-9]+$/', $x)) return $x;
@@ -129,19 +129,19 @@ class parse {
   // Extract a required number value from an array.
   //
   public static function get_number($array, $key)
-  { return parse::is_number(parse::required($array, $key)); }
+  { return parse::as_number(parse::required($array, $key)); }
 
   // -------------------------------------------------------------------------
   // Extract a number from an array.  If not present or null, return null.
   //
   public static function optional_number($array, $key)
-  { return parse::is_number(parse::optional($array, $key), parse::NullOk); }
+  { return parse::as_number(parse::optional($array, $key), parse::NullOk); }
 
 
   // -------------------------------------------------------------------------
   // Returns the value iff it is a URL.
   //
-  public static function is_url($x, $nullOk = false)
+  public static function as_url($x, $nullOk = false)
   {
     if(is_null($x) && $nullOk) return null;
     if(filter_var($x, FILTER_VALIDATE_URL)) return $x;
@@ -152,19 +152,19 @@ class parse {
   // Extract a required URL from an array.
   //
   public static function get_url($array, $key)
-  { return parse::is_url(parse::required($array, $key)); }
+  { return parse::as_url(parse::required($array, $key)); }
 
   // -------------------------------------------------------------------------
   // Extract a URL from an array.  If not present or null, return null.
   //
   public static function optional_url($array, $key)
-  { return parse::is_url(parse::optional($array, $key), parse::NullOk); }
+  { return parse::as_url(parse::optional($array, $key), parse::NullOk); }
 
 
   // -------------------------------------------------------------------------
   // Returns the value iff it is a country.
   //
-  public static function is_country($x, $nullOk = false)
+  public static function as_country($x, $nullOk = false)
   {
     if(is_null($x) && $nullOk) return null;
     if(preg_match('/^[A-Z]{2}$/', $x)) return $x;
@@ -175,19 +175,19 @@ class parse {
   // Extract a required country from an array.
   //
   public static function get_country($array, $key)
-  { return parse::is_country(parse::required($array, $key)); }
+  { return parse::as_country(parse::required($array, $key)); }
 
   // -------------------------------------------------------------------------
   // Extract a country from an array.  If not present or null, return null.
   //
   public static function optional_country($array, $key)
-  { return parse::is_country(parse::optional($array, $key), parse::NullOk); }
+  { return parse::as_country(parse::optional($array, $key), parse::NullOk); }
 
 
   // -------------------------------------------------------------------------
   // Returns the value iif it is a UUID.
   //
-  public static function is_uuid($x, $nullOk = false)
+  public static function as_uuid($x, $nullOk = false)
   {
     if(is_null($x) && $nullOk) return null;
     if(preg_match('/^[A-F0-9]{8}-(?:[A-F0-9]{4}-){3}[A-F0-9]{12}$/i', $x))
@@ -199,19 +199,19 @@ class parse {
   // Extract a required UUID from an array.
   //
   public static function get_uuid($array, $key)
-  { return parse::is_uuid(parse::required($array, $key)); }
+  { return parse::as_uuid(parse::required($array, $key)); }
 
   // -------------------------------------------------------------------------
   // Extract a UUID from an array.  If not present or null, return null.
   //
   public static function optional_uuid($array, $key)
-  { return parse::is_uuid(parse::optional($array, $key), parse::NullOk); }
+  { return parse::as_uuid(parse::optional($array, $key), parse::NullOk); }
 
 
   // -------------------------------------------------------------------------
   // Returns the value iif it is a date.
   //
-  public static function is_date($x, $nullOk = false)
+  public static function as_date($x, $nullOk = false)
   {
     if(is_null($x) && $nullOk) return null;
     if(preg_match('/^[0-9]{4}-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])$/', $x))
@@ -223,19 +223,19 @@ class parse {
   // Extract a required date from an array.
   //
   public static function get_date($array, $key)
-  { return parse::is_date(parse::required($array, $key)); }
+  { return parse::as_date(parse::required($array, $key)); }
 
   // -------------------------------------------------------------------------
   // Extract a date from an array.  If not present or null, return null.
   //
   public static function optional_date($array, $key)
-  { return parse::is_date(parse::optional($array, $key), parse::NullOk); }
+  { return parse::as_date(parse::optional($array, $key), parse::NullOk); }
 
 
   // -------------------------------------------------------------------------
   // Returns the value iif it is a currency.
   //
-  public static function is_currency($x, $nullOk = false)
+  public static function as_currency($x, $nullOk = false)
   {
     if(is_null($x) && $nullOk) return null;
     if(preg_match('/^[A-Z]{3}$/', $x)) return $x;
@@ -246,19 +246,19 @@ class parse {
   // Extract a required currency from an array.
   //
   public static function get_currency($array, $key)
-  { return parse::is_currency(parse::required($array, $key)); }
+  { return parse::as_currency(parse::required($array, $key)); }
 
   // -------------------------------------------------------------------------
   // Extract a currency from an array.  If not present or null, return null.
   //
   public static function optional_currency($array, $key)
-  { return parse::is_currency(parse::optional($array, $key), parse::NullOk); }
+  { return parse::as_currency(parse::optional($array, $key), parse::NullOk); }
 
 
   // -------------------------------------------------------------------------
   // Returns the value iif it is an email address.
   //
-  public static function is_email($x, $nullOk = false)
+  public static function as_email($x, $nullOk = false)
   {
     if(is_null($x) && $nullOk) return null;
     if(filter_var($x, FILTER_VALIDATE_EMAIL)) return $x;
@@ -269,20 +269,20 @@ class parse {
   // Extract a required email address from an array.
   //
   public static function get_email($array, $key)
-  { return parse::is_email(parse::required($array, $key)); }
+  { return parse::as_email(parse::required($array, $key)); }
 
   // -------------------------------------------------------------------------
   // Extract an email address from an array.  If not present or null, return
   // null.
   //
   public static function optional_email($array, $key)
-  { return parse::is_email(parse::optional($array, $key), parse::NullOk); }
+  { return parse::as_email(parse::optional($array, $key), parse::NullOk); }
 
 
   // -------------------------------------------------------------------------
   // Returns the value iif it is an IP address.
   //
-  public static function is_ip($x, $nullOk = false)
+  public static function as_ip($x, $nullOk = false)
   {
     $common_flags = FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE;
     if(is_null($x) && $nullOk) return null;
@@ -296,13 +296,13 @@ class parse {
   // Extract a required IP address from an array.
   //
   public static function get_ip($array, $key)
-  { return parse::is_ip(parse::required($array, $key)); }
+  { return parse::as_ip(parse::required($array, $key)); }
 
   // -------------------------------------------------------------------------
   // Extract an IP address from an array.  If not present or null, return null.
   //
   public static function optional_ip($array, $key)
-  { return parse::is_ip(parse::optional($array, $key), parse::NullOk); }
+  { return parse::as_ip(parse::optional($array, $key), parse::NullOk); }
 
 
   // =========================================================================

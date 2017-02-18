@@ -78,8 +78,8 @@ class CheckoutApi {
   function __construct($merchantId, $secret, $env, $name,
                        $retryDelay = 50, $maxRetries = 2)
   {
-    $this->m_merchantId = parse::is_uuid($merchantId);
-    $this->m_secret = parse::is_string($secret);
+    $this->m_merchantId = parse::as_uuid($merchantId);
+    $this->m_secret = parse::as_string($secret);
     if(is_int($env) && $env == self::Production){
       $this->m_url = 'https://checkout.gointerpay.net/';
       // NOTE: in production there is a dedicated fingerprint service as well
@@ -91,13 +91,13 @@ class CheckoutApi {
     }else{
       // NOTE: This is used for testing and development.  Feel free to specify
       // an alternate URL to test simulated responses.
-      $this->m_url = parse::is_url($env);
+      $this->m_url = parse::as_url($env);
       $this->m_fingerprintUrl
         = $this->m_url . self::$st_apiRevision . '/fingerprint';
     }
     $this->m_url .= self::$st_apiRevision . '/';
     $this->m_fingerprintUrl .= '?MerchantId=' . $merchantId;
-    $this->m_name = parse::is_string($name);
+    $this->m_name = parse::as_string($name);
     $this->m_retryDelay = $retryDelay;
     $this->m_maxRetries = $maxRetries;
     $this->m_verbose = false;
@@ -161,9 +161,9 @@ class CheckoutApi {
       ('localize',
        [
          'MerchantId' => $this->m_merchantId,
-         'ConsumerIpAddress' => parse::is_ip($consumerIpAddress),
-         'IncludeRate' => parse::is_boolean($includeRate, parse::NullOk),
-         'Country' => parse::is_country($country, parse::NullOk)
+         'ConsumerIpAddress' => parse::as_ip($consumerIpAddress),
+         'IncludeRate' => parse::as_boolean($includeRate, parse::NullOk),
+         'Country' => parse::as_country($country, parse::NullOk)
        ]);
   }
 
@@ -176,7 +176,7 @@ class CheckoutApi {
       ('localize',
        [
          'MerchantId' => $this->m_merchantId,
-         'Currency' => parse::is_currency($currency)
+         'Currency' => parse::as_currency($currency)
        ]);
   }
 
@@ -199,9 +199,9 @@ class CheckoutApi {
       ('getPaymentMethods',
        [
          'MerchantId' => $this->m_merchantId,
-         'Country' => parse::is_country($country),
-         'Currency' => parse::is_currency($currency),
-         'ViaAgent' => parse::is_boolean($viaAgent, parse::NullOk)
+         'Country' => parse::as_country($country),
+         'Currency' => parse::as_currency($currency),
+         'ViaAgent' => parse::as_boolean($viaAgent, parse::NullOk)
        ]);
   }
 
@@ -465,7 +465,7 @@ class CheckoutApi {
     $shipping = parse::get_shipping($in);
     $args = [
       'MerchantId' => $this->m_merchantId,
-      'OrderId' => parse::is_uuid($orderId),
+      'OrderId' => parse::as_uuid($orderId),
       'ConsumerTotal' => parse::optional_decimal($in, 'ConsumerTotal'),
       'ConsumerCurrency' => parse::optional_currency($in, 'ConsumerCurrency'),
       'RateOfferId' => parse::optional_uuid($in, 'RateOfferId'),
@@ -545,7 +545,7 @@ class CheckoutApi {
   {
     $args = [
       'MerchantId' => $this->m_merchantId,
-      'OrderId' => parse::is_uuid($orderId),
+      'OrderId' => parse::as_uuid($orderId),
       'ConsumerIpAddress' => parse::optional_ip($in, 'ConsumerIpAddress'),
       'PaymentMethod' => parse::optional_string($in, 'PaymentMethod'),
       'IssuerId' => parse::optional_string($in, 'IssuerId'),
@@ -567,7 +567,7 @@ class CheckoutApi {
     return self::prv_post('capture',
                           [
                             'MerchantId' => $this->m_merchantId,
-                            'OrderId' => parse::is_uuid($orderId)
+                            'OrderId' => parse::as_uuid($orderId)
                           ]);
   }
 
@@ -579,7 +579,7 @@ class CheckoutApi {
     return self::prv_post('cancel',
                           [
                             'MerchantId' => $this->m_merchantId,
-                            'OrderId' => parse::is_uuid($orderId)
+                            'OrderId' => parse::as_uuid($orderId)
                           ]);
   }
 
@@ -591,9 +591,9 @@ class CheckoutApi {
     return self::prv_post('refund',
                           [
                             'MerchantId' => $this->m_merchantId,
-                            'OrderId' => parse::is_uuid($orderId),
-                            'Amount' => parse::is_decimal($amount),
-                            'ReferenceId' => parse::is_string($reference)
+                            'OrderId' => parse::as_uuid($orderId),
+                            'Amount' => parse::as_decimal($amount),
+                            'ReferenceId' => parse::as_string($reference)
                           ]);
   }
 
@@ -605,7 +605,7 @@ class CheckoutApi {
     return self::prv_post('query',
                           [
                             'MerchantId' => $this->m_merchantId,
-                            'OrderId' => parse::is_uuid($orderId)
+                            'OrderId' => parse::as_uuid($orderId)
                           ]);
   }
 
@@ -617,7 +617,7 @@ class CheckoutApi {
     return self::prv_post('query',
                           [
                             'MerchantId' => $this->m_merchantId,
-                            'ReferenceId' => parse::is_string($referenceId)
+                            'ReferenceId' => parse::as_string($referenceId)
                           ]);
   }
 
@@ -824,7 +824,7 @@ class CheckoutApi {
     curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
     // .. we want to add the library version to the as the User-Agent
     curl_setopt($curl, CURLOPT_USERAGENT,
-                'GoInterpay::sdk::php::CheckoutApi $Revision: 26236 $ - '
+                'GoInterpay::sdk::php::CheckoutApi $Revision: 26335 $ - '
                 . $this->m_name);
 
     if($data !== null){
