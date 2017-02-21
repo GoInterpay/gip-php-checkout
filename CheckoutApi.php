@@ -153,7 +153,7 @@ class CheckoutApi {
   // Alternatively, /localize can be called and the values returned directly
   // to the browser using getLocalizeUrl() above.
   //
-  public function localize($consumerIpAddress,
+  public function localize($consumerIpAddress = null,
                            $country = null,
                            $includeRate = null)
   {
@@ -161,7 +161,7 @@ class CheckoutApi {
       ('localize',
        [
          'MerchantId' => $this->m_merchantId,
-         'ConsumerIpAddress' => parse::as_ip($consumerIpAddress),
+         'ConsumerIpAddress' => parse::as_ip($consumerIpAddress, parse::NullOk),
          'IncludeRate' => parse::as_boolean($includeRate, parse::NullOk),
          'Country' => parse::as_country($country, parse::NullOk)
        ]);
@@ -824,7 +824,7 @@ class CheckoutApi {
     curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
     // .. we want to add the library version to the as the User-Agent
     curl_setopt($curl, CURLOPT_USERAGENT,
-                'GoInterpay::sdk::php::CheckoutApi $Revision: 26335 $ - '
+                'GoInterpay::sdk::php::CheckoutApi $Revision: 26399 $ - '
                 . $this->m_name);
 
     if($data !== null){
