@@ -40,6 +40,12 @@ $localize = $gip->localize('1.2.3.4');
 print_r($localize);
 
 // ---------------------------------------------------------------------------
+// Get the badge information for the specified currency
+//
+$badge = $gip->badge('CAD');
+print_r($badge);
+
+// ---------------------------------------------------------------------------
 // Get the rate offers available for the merchant.
 //
 $rates = $gip->getRates();
@@ -175,6 +181,7 @@ $checkout = $gip->checkout(
     'Reference' => $myReference + ':contract',
     'ContractId' => $contractId,
     'ConsumerTotal' => '50.00',
+    'PaymentMethod' => 'VISA',
     'ConsumerCurrency' => 'CAD',
     'Items' => [
       [

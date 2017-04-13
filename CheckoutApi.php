@@ -135,6 +135,34 @@ class CheckoutApi {
   { return $this->m_fingerprintUrl; }
 
   // -------------------------------------------------------------------------
+  // Get the URL that can be used for a call to /badge. The URL returned here 
+  // returns location declaration information that should be displayed to the 
+  // customer.  See the API documentation for more details.
+  //
+  public function getBadgeUrl()
+  { return $this->m_url . 'badge?MerchantId=' . $this->m_merchantId; }
+
+  // -------------------------------------------------------------------------
+  // Retrieve the location declaration information.
+  //
+  //  $x = $gip->badge();
+  //
+  // Alternatively, /badge can be called and the values returned directly
+  // to the browser using getBadgeUrl() above.
+  //
+  public function badge($currency = null,
+                        $consumerIpAddress = null)
+  {
+    return self::prv_get
+      ('badge',
+       [
+         'MerchantId' => $this->m_merchantId,
+         'Currency' => parse::as_currency($currency, parse::NullOk),
+         'ConsumerIpAddress' => parse::as_ip($consumerIpAddress, parse::NullOk)
+       ]);
+  }
+
+  // -------------------------------------------------------------------------
   // Get the URL that can be used for a call to /localize.  The URL returned
   // here returns JavaScript/ES6 code that must be executed in the browser,
   // and returns the localization information.  See the API documentation for
@@ -824,7 +852,7 @@ class CheckoutApi {
     curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
     // .. we want to add the library version to the as the User-Agent
     curl_setopt($curl, CURLOPT_USERAGENT,
-                'GoInterpay::sdk::php::CheckoutApi $Revision: 26399 $ - '
+                'GoInterpay::sdk::php::CheckoutApi $Revision: 27521 $ - '
                 . $this->m_name);
 
     if($data !== null){
