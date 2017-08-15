@@ -367,6 +367,21 @@ class CheckoutApi {
   //
   public function checkout($in, $card = null)
   {
+    list ($url, $entity) = $this->getCheckoutRequest($in);
+    if($card !== null){
+      $entity .= '&card=' . urlencode(json_encode(parse::get_card($card)));
+    }
+    return self::prv_doPost($url, $entity);
+  }
+
+
+  // -------------------------------------------------------------------------
+  // Get the URL, request, and signature that would be required to initiate an
+  // /checkout call from the browser.  This returns the URL to which the
+  // request should be posted, and a signed request to create the specified
+  // order.  Card details can then be added if necessary.
+  public function getCheckoutRequest($in)
+  {
     $shipping = parse::get_shipping($in);
     $args = [
       'MerchantId' => $this->m_merchantId,
@@ -397,11 +412,7 @@ class CheckoutApi {
       'Meta' => parse::optional($in, 'Meta')
     ];
 
-    list ($url, $entity) = self::prv_makePost('checkout', $args);
-    if($card !== null){
-      $entity .= '&card=' . urlencode(json_encode(parse::get_card($card)));
-    }
-    return self::prv_doPost($url, $entity);
+    return self::prv_makePost('checkout', $args);
   }
 
   // -------------------------------------------------------------------------
@@ -553,7 +564,7 @@ class CheckoutApi {
   // -------------------------------------------------------------------------
   // Get the URL, request, and signature that would be required to initiate an
   // /authorize call from the browser.  This returns the URL to which the
-  // request should be posted, and a signed request to autorize the specified
+  // request should be posted, and a signed request to authorize the specified
   // order.  Card details can then be added if necessary.
   //
   // $in may specify any of the following:
@@ -650,8 +661,10 @@ class CheckoutApi {
   }
 
   // -------------------------------------------------------------------------
-  // Call this function when a notification is received.  The callback
-  // function must accept the following parameters:
+  // Call this function when a notification is received.  
+  // Entity may be an array or the url parameters attached to the 
+  // notification in the form of 'request=<..>&signature=<..>'
+  // The callback function must accept the following parameters:
   //
   //  message - an error message if there was a problem handling the response
   //  values  - an array of the information specified in the notification
@@ -666,8 +679,12 @@ class CheckoutApi {
   //
   public function notification($entity, $callback)
   {
-    // The entity should be in the form of 'request=<..>&signature=<..>'
-    parse_str($entity, $values);
+    if(is_array($entity)){
+      $values = $entity;
+    }else{
+      parse_str($entity, $values);
+    }
+    
     try {
       $request = parse::get_string($values, 'request');
       $signature = parse::get_string($values, 'signature');
@@ -852,7 +869,7 @@ class CheckoutApi {
     curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
     // .. we want to add the library version to the as the User-Agent
     curl_setopt($curl, CURLOPT_USERAGENT,
-                'GoInterpay::sdk::php::CheckoutApi $Revision: 27521 $ - '
+                'GoInterpay::sdk::php::CheckoutApi $Revision: 31635 $ - '
                 . $this->m_name);
 
     if($data !== null){
