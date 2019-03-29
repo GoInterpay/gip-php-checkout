@@ -662,8 +662,9 @@ class CheckoutApi {
 
   // -------------------------------------------------------------------------
   // Call this function when a notification is received.  
-  // Entity may be an array or the url parameters attached to the 
-  // notification in the form of 'request=<..>&signature=<..>'
+  // Entity may be an array of variables already parsed from the notification
+  // or the url parameters attached to the notification in the form of:
+  // 'request=<..>&signature=<..>'
   // The callback function must accept the following parameters:
   //
   //  message - an error message if there was a problem handling the response
@@ -679,6 +680,10 @@ class CheckoutApi {
   //
   public function notification($entity, $callback)
   {
+    //NB: in Magento the URL parameters are already parsed for you by the time
+    //    the code is hit to process the notification, so instead of only
+    //    allowing the raw URL parameters to be passed in also accept pre-parsed
+    //    URL parameters
     if(is_array($entity)){
       $values = $entity;
     }else{
